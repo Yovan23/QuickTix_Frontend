@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Menu, X, Film, Search, Ticket, User, LogOut, LayoutDashboard } from 'lucide-react'
+import { Menu, X, Ticket, User, LogOut, LayoutDashboard, Building } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { useAuth } from '@/contexts/AuthContext'
 
 const navLinks = [
@@ -13,24 +12,52 @@ const navLinks = [
 
 export function Navbar() {
     const [isOpen, setIsOpen] = useState(false)
-    const [searchQuery, setSearchQuery] = useState('')
     const location = useLocation()
     const navigate = useNavigate()
-    const { user, logout } = useAuth()
+    const { user, logout, isAdmin, isTheatreOwner } = useAuth();
 
     const handleLogout = () => {
-        logout()
-        navigate('/')
-        setIsOpen(false)
-    }
+        logout();
+        navigate('/');
+        setIsOpen(false);
+    };
 
+    // Handle anchor link navigation (for Movies -> #movies section)
+    const handleNavClick = (e, href) => {
+        if (href.includes('#')) {
+            const hash = href.split('#')[1];
+            const basePath = href.split('#')[0] || '/';
+
+            // If we're on the same page, just scroll
+            if (location.pathname === basePath || (basePath === '/' && location.pathname === '/')) {
+                e.preventDefault();
+                const element = document.getElementById(hash);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                }
+            } else {
+                // Navigate to the page first, then scroll after a short delay
+                e.preventDefault();
+                navigate(basePath);
+                setTimeout(() => {
+                    const element = document.getElementById(hash);
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }, 100);
+            }
+        }
+        setIsOpen(false);
+    };
+
+    // Get dashboard link based on user role
     const getDashboardLink = () => {
-        if (user?.role === 'admin') return '/admin/dashboard'
-        if (user?.role === 'theater_owner') return '/theater/dashboard'
-        return null
-    }
+        if (isAdmin) return '/admin/dashboard';
+        if (isTheatreOwner) return '/theater/dashboard';
+        return null;
+    };
 
-    const dashboardLink = getDashboardLink()
+    const dashboardLink = getDashboardLink();
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 glass-effect border-b border-white/10">
@@ -49,26 +76,15 @@ export function Navbar() {
 
                     {/* Desktop Navigation */}
                     <div className="hidden md:flex items-center gap-8">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                type="text"
-                                placeholder="Search movies..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-64 pl-10 bg-secondary/50 border-white/10 focus:border-primary"
-                            />
-                        </div>
-
                         {/* Nav Links */}
                         <div className="flex items-center gap-6">
                             {navLinks.map((link) => (
                                 <Link
                                     key={link.name}
                                     to={link.href}
+                                    onClick={(e) => handleNavClick(e, link.href)}
                                     className={cn(
-                                        "text-sm font-medium transition-colors hover:text-primary",
+                                        "text-base font-medium whitespace-nowrap transition-colors hover:text-primary",
                                         location.pathname === link.href
                                             ? "text-primary"
                                             : "text-muted-foreground"
@@ -83,13 +99,23 @@ export function Navbar() {
                         {user ? (
                             <div className="flex items-center gap-4">
                                 <span className="text-sm font-medium text-white">
-                                    Hi, {user.name.split(' ')[0]}
+                                    Hi, {user.name?.split(' ')[0] || 'User'}
                                 </span>
+                                {/* Dashboard link for admin/theatre owner */}
                                 {dashboardLink && (
                                     <Link to={dashboardLink}>
                                         <Button size="sm" variant="ghost" className="gap-2">
                                             <LayoutDashboard className="h-4 w-4" />
                                             Dashboard
+                                        </Button>
+                                    </Link>
+                                )}
+                                {/* Become Partner link for regular users */}
+                                {!dashboardLink && (
+                                    <Link to="/become-partner">
+                                        <Button size="sm" variant="ghost" className="gap-2 text-primary">
+                                            <Building className="h-4 w-4" />
+                                            Become Partner
                                         </Button>
                                     </Link>
                                 )}
@@ -127,18 +153,6 @@ export function Navbar() {
                 )}
             >
                 <div className="container py-4 space-y-4">
-                    {/* Mobile Search */}
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            type="text"
-                            placeholder="Search movies..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 bg-secondary/50 border-white/10"
-                        />
-                    </div>
-
                     {/* Mobile Nav Links */}
                     <div className="flex flex-col gap-2">
                         {navLinks.map((link) => (
@@ -146,12 +160,12 @@ export function Navbar() {
                                 key={link.name}
                                 to={link.href}
                                 className={cn(
-                                    "px-4 py-3 rounded-lg text-sm font-medium transition-colors",
+                                    "px-4 py-3 rounded-lg text-base font-medium whitespace-nowrap transition-colors",
                                     location.pathname === link.href
                                         ? "bg-primary/20 text-primary"
                                         : "text-muted-foreground hover:bg-secondary"
                                 )}
-                                onClick={() => setIsOpen(false)}
+                                onClick={(e) => handleNavClick(e, link.href)}
                             >
                                 {link.name}
                             </Link>
@@ -170,6 +184,17 @@ export function Navbar() {
                                         <Button variant="ghost" className="w-full justify-start gap-2">
                                             <LayoutDashboard className="h-4 w-4" />
                                             Dashboard
+                                        </Button>
+                                    </Link>
+                                )}
+                                {!dashboardLink && (
+                                    <Link
+                                        to="/become-partner"
+                                        onClick={() => setIsOpen(false)}
+                                    >
+                                        <Button variant="ghost" className="w-full justify-start gap-2 text-primary">
+                                            <Building className="h-4 w-4" />
+                                            Become Partner
                                         </Button>
                                     </Link>
                                 )}

@@ -36,12 +36,20 @@ export const LANGUAGES = [
     'Marathi',
 ]
 
-// Rating options for filtering
+// Rating options for filtering (0-5 scale)
 export const RATING_OPTIONS = [
-    { value: '9', label: '9+ Rating' },
-    { value: '8', label: '8+ Rating' },
-    { value: '7', label: '7+ Rating' },
-    { value: '6', label: '6+ Rating' },
+    { value: '4.5', label: '4.5+ Rating' },
+    { value: '4', label: '4+ Rating' },
+    { value: '3.5', label: '3.5+ Rating' },
+    { value: '3', label: '3+ Rating' },
+    { value: '2', label: '2+ Rating' },
+]
+
+// Movie status options for filtering
+export const MOVIE_STATUS_OPTIONS = [
+    { value: 'RUNNING', label: 'Running' },
+    { value: 'UPCOMING', label: 'Upcoming' },
+    { value: 'ENDED', label: 'Ended' },
 ]
 
 // Certificate types
