@@ -1,44 +1,108 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
-import { Home } from '@/pages/Home'
-import { MovieDetails } from '@/pages/MovieDetails'
-import { SeatSelection } from '@/pages/SeatSelection'
-import { BookingSuccess } from '@/pages/BookingSuccess'
-import { Login } from '@/pages/Login'
-import { AdminDashboard } from '@/pages/admin/AdminDashboard'
-import { TheaterOwnerDashboard } from '@/pages/theater/TheaterOwnerDashboard'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from './ProtectedRoute'
+import ErrorBoundary from '@/components/shared/ErrorBoundary'
+import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
+
+// Lazy load pages for better performance
+// Named exports require .then(module => ({ default: module.ExportName }))
+const Home = lazy(() => import('@/pages/Home').then(m => ({ default: m.Home })))
+const MovieDetails = lazy(() => import('@/pages/MovieDetails').then(m => ({ default: m.MovieDetails })))
+const SeatSelection = lazy(() => import('@/pages/SeatSelection').then(m => ({ default: m.SeatSelection })))
+const PaymentPage = lazy(() => import('@/pages/PaymentPage'))
+const TicketPage = lazy(() => import('@/pages/TicketPage'))
+const BookingSuccess = lazy(() => import('@/pages/BookingSuccess').then(m => ({ default: m.BookingSuccess })))
+const Login = lazy(() => import('@/pages/Login').then(m => ({ default: m.Login })))
+const Register = lazy(() => import('@/pages/Register').then(m => ({ default: m.Register })))
+const Unauthorized = lazy(() => import('@/pages/Unauthorized').then(m => ({ default: m.Unauthorized })))
+const BecomePartner = lazy(() => import('@/pages/BecomePartner').then(m => ({ default: m.BecomePartner })))
+const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
+const TheaterOwnerDashboard = lazy(() => import('@/pages/theater/TheaterOwnerDashboard').then(m => ({ default: m.TheaterOwnerDashboard })))
+
+// Loading fallback component
+const PageLoader = () => (
+    <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading..." />
+    </div>
+)
 
 export function AppRoutes() {
     return (
         <AuthProvider>
             <Layout>
-                <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/movie/:id" element={<MovieDetails />} />
-                    <Route path="/seat-selection/:movieId/:showId" element={<SeatSelection />} />
-                    <Route path="/booking-success" element={<BookingSuccess />} />
+                <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                        {/* Public Routes */}
+                        <Route path="/" element={<Home />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
+                        <Route path="/unauthorized" element={<Unauthorized />} />
+                        <Route path="/movie/:id" element={<MovieDetails />} />
+                        <Route path="/become-partner" element={<BecomePartner />} />
 
-                    {/* Protected Routes */}
-                    <Route
-                        path="/admin/dashboard"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <AdminDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/theater/dashboard"
-                        element={
-                            <ProtectedRoute allowedRoles={['theater_owner']}>
-                                <TheaterOwnerDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                </Routes>
+                        {/* Seat Selection - Public access */}
+                        <Route
+                            path="/seat-selection/:movieId/:showId"
+                            element={
+                                <ErrorBoundary>
+                                    <SeatSelection />
+                                </ErrorBoundary>
+                            }
+                        />
+
+                        {/* Payment Route */}
+                        <Route
+                            path="/payment/:bookingId"
+                            element={
+                                <ProtectedRoute allowedRoles={['USER', 'THEATRE_OWNER', 'ADMIN']}>
+                                    <PaymentPage />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* Ticket Route */}
+                        <Route
+                            path="/ticket/:bookingId"
+                            element={
+                                <ProtectedRoute allowedRoles={['USER', 'THEATRE_OWNER', 'ADMIN']}>
+                                    <TicketPage />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* Protected User Routes */}
+                        <Route
+                            path="/booking-success"
+                            element={
+                                <ProtectedRoute allowedRoles={['USER', 'THEATRE_OWNER', 'ADMIN']}>
+                                    <BookingSuccess />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* Protected Admin Routes */}
+                        <Route
+                            path="/admin/dashboard"
+                            element={
+                                <ProtectedRoute allowedRoles={['ADMIN']}>
+                                    <AdminDashboard />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* Protected Theatre Owner Routes */}
+                        <Route
+                            path="/theater/dashboard"
+                            element={
+                                <ProtectedRoute allowedRoles={['THEATRE_OWNER', 'ADMIN']}>
+                                    <TheaterOwnerDashboard />
+                                </ProtectedRoute>
+                            }
+                        />
+                    </Routes>
+                </Suspense>
             </Layout>
         </AuthProvider>
     )

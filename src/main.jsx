@@ -1,4 +1,7 @@
 import { StrictMode } from 'react'
+// Polyfill for sockjs-client
+window.global = window;
+
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'

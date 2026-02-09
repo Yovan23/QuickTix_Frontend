@@ -1,54 +1,92 @@
-import { useEffect } from 'react'
-import { useLocation, useNavigate, Link } from 'react-router-dom'
-import { CheckCircle, Home, Download, Calendar, Clock, MapPin, Ticket } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import confetti from 'canvas-confetti'
+import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { CheckCircle, Home, Download, Calendar, Clock, MapPin, Ticket } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import confetti from 'canvas-confetti';
 
 export function BookingSuccess() {
-    const location = useLocation()
-    const navigate = useNavigate()
-    const { booking } = location.state || {}
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { booking } = location.state || {};
 
     useEffect(() => {
         if (!booking) {
-            navigate('/')
-            return
+            navigate('/');
+            return;
         }
 
-        // Trigger confetti
-        const duration = 3 * 1000
-        const animationEnd = Date.now() + duration
-        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 }
+        // Trigger confetti celebration
+        const duration = 3 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
 
-        const randomInRange = (min, max) => Math.random() * (max - min) + min
+        const randomInRange = (min, max) => Math.random() * (max - min) + min;
 
         const interval = setInterval(function () {
-            const timeLeft = animationEnd - Date.now()
+            const timeLeft = animationEnd - Date.now();
 
             if (timeLeft <= 0) {
-                return clearInterval(interval)
+                return clearInterval(interval);
             }
 
-            const particleCount = 50 * (timeLeft / duration)
+            const particleCount = 50 * (timeLeft / duration);
             confetti({
                 ...defaults,
                 particleCount,
                 origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-            })
+            });
             confetti({
                 ...defaults,
                 particleCount,
                 origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-            })
-        }, 250)
+            });
+        }, 250);
 
-        return () => clearInterval(interval)
-    }, [booking, navigate])
+        return () => clearInterval(interval);
+    }, [booking, navigate]);
 
-    if (!booking) return null
+    if (!booking) return null;
 
-    const { movie, show, seats, totalAmount, bookingId } = booking
+    const { movie, show, seats, totalAmount, bookingId } = booking;
+
+    // Helper functions for flexible field access
+    const getMoviePoster = () => movie?.posterUrl || movie?.poster || '/placeholder-movie.jpg';
+    const getMovieTitle = () => movie?.title || movie?.name || 'Movie';
+    const getMovieLanguage = () => {
+        const langs = movie?.languages || [];
+        if (Array.isArray(langs) && langs.length > 0) {
+            return typeof langs[0] === 'object' ? langs[0].name : langs[0];
+        }
+        return movie?.language || 'N/A';
+    };
+    const getMovieCertificate = () => movie?.certificate || movie?.certification || 'UA';
+    const getMovieDuration = () => movie?.durationMinutes || movie?.duration || 'N/A';
+
+    const getShowDate = () => {
+        const dateStr = show?.startTime || show?.showTime || show?.date;
+        if (!dateStr) return 'N/A';
+        return new Date(dateStr).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric'
+        });
+    };
+
+    const getShowTime = () => {
+        const timeStr = show?.startTime || show?.showTime || show?.time;
+        if (!timeStr) return 'N/A';
+        return new Date(timeStr).toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    };
+
+    const getTheaterName = () => show?.theatreName || show?.theaterName || 'Theater';
+    const getTheaterLocation = () => show?.theatreLocation || show?.theaterLocation || '';
+
+    const getSeatLabel = (seat) => seat?.seatNumber || seat?.id || 'N/A';
 
     return (
         <div className="min-h-screen py-20 px-4 flex items-center justify-center">
@@ -69,9 +107,12 @@ export function BookingSuccess() {
                     {/* Movie Poster Background Blur */}
                     <div className="absolute inset-0 opacity-10">
                         <img
-                            src={movie.poster}
+                            src={getMoviePoster()}
                             alt=""
                             className="w-full h-full object-cover blur-xl"
+                            onError={(e) => {
+                                e.target.src = '/placeholder-movie.jpg';
+                            }}
                         />
                     </div>
 
@@ -79,15 +120,18 @@ export function BookingSuccess() {
                         {/* Movie Info */}
                         <div className="flex gap-4">
                             <img
-                                src={movie.poster}
-                                alt={movie.title}
+                                src={getMoviePoster()}
+                                alt={getMovieTitle()}
                                 className="w-20 h-28 object-cover rounded-lg shadow-md"
+                                onError={(e) => {
+                                    e.target.src = '/placeholder-movie.jpg';
+                                }}
                             />
                             <div className="overflow-hidden">
-                                <h2 className="font-bold text-lg truncate">{movie.title}</h2>
+                                <h2 className="font-bold text-lg truncate">{getMovieTitle()}</h2>
                                 <div className="text-sm text-muted-foreground mt-1 space-y-1">
-                                    <span className="block">{movie.language} • {movie.certificate}</span>
-                                    <span className="block">{movie.duration} min</span>
+                                    <span className="block">{getMovieLanguage()} • {getMovieCertificate()}</span>
+                                    <span className="block">{getMovieDuration()} min</span>
                                 </div>
                             </div>
                         </div>
@@ -101,25 +145,24 @@ export function BookingSuccess() {
                                     <Calendar className="h-4 w-4" />
                                     <span>Date</span>
                                 </div>
-                                <p className="font-medium">
-                                    {new Date(show.date).toLocaleDateString('en-US', {
-                                        weekday: 'short', month: 'short', day: 'numeric'
-                                    })}
-                                </p>
+                                <p className="font-medium">{getShowDate()}</p>
                             </div>
                             <div className="space-y-1">
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <Clock className="h-4 w-4" />
                                     <span>Time</span>
                                 </div>
-                                <p className="font-medium text-primary">{show.time}</p>
+                                <p className="font-medium text-primary">{getShowTime()}</p>
                             </div>
                             <div className="col-span-2 space-y-1">
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <MapPin className="h-4 w-4" />
                                     <span>Theater</span>
                                 </div>
-                                <p className="font-medium">{show.theaterName}, {show.theaterLocation}</p>
+                                <p className="font-medium">
+                                    {getTheaterName()}
+                                    {getTheaterLocation() && `, ${getTheaterLocation()}`}
+                                </p>
                             </div>
                         </div>
 
@@ -128,11 +171,13 @@ export function BookingSuccess() {
                         {/* Seats & Amount */}
                         <div className="flex justify-between items-end">
                             <div className="space-y-2">
-                                <span className="text-sm text-muted-foreground">Seats ({seats.length})</span>
+                                <span className="text-sm text-muted-foreground">
+                                    Seats ({seats?.length || 0})
+                                </span>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {seats.map(seat => (
-                                        <Badge key={seat.id} variant="secondary">
-                                            {seat.id}
+                                    {seats?.map((seat, idx) => (
+                                        <Badge key={getSeatLabel(seat) || idx} variant="secondary">
+                                            {getSeatLabel(seat)}
                                         </Badge>
                                     ))}
                                 </div>
@@ -168,5 +213,5 @@ export function BookingSuccess() {
                 </div>
             </div>
         </div>
-    )
+    );
 }

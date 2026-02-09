@@ -1,10 +1,23 @@
-import { X, SlidersHorizontal } from 'lucide-react'
+import { X, SlidersHorizontal, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Select, SelectOption } from '@/components/ui/select'
-import { GENRES, LANGUAGES, RATING_OPTIONS } from '@/utils/constants'
+import { GENRES, LANGUAGES, RATING_OPTIONS, MOVIE_STATUS_OPTIONS } from '@/utils/constants'
 
-export function FilterBar({ filters, onFilterChange, onClearFilters }) {
-    const hasActiveFilters = filters.genre || filters.language || filters.rating
+export function FilterBar({
+    filters,
+    onFilterChange,
+    onClearFilters,
+    genres: apiGenres,
+    languages: apiLanguages,
+    searchQuery = '',
+    onSearchChange
+}) {
+    const hasActiveFilters = filters.genre || filters.language || filters.rating || filters.status || searchQuery
+
+    // Use API data if available, otherwise fallback to constants
+    const genreList = apiGenres?.length > 0 ? apiGenres : GENRES.map((g, i) => ({ id: g, name: g }))
+    const languageList = apiLanguages?.length > 0 ? apiLanguages : LANGUAGES.map((l, i) => ({ id: l, name: l }))
 
     const handleGenreChange = (e) => {
         onFilterChange({ ...filters, genre: e.target.value })
@@ -18,12 +31,38 @@ export function FilterBar({ filters, onFilterChange, onClearFilters }) {
         onFilterChange({ ...filters, rating: e.target.value })
     }
 
+    const handleStatusChange = (e) => {
+        onFilterChange({ ...filters, status: e.target.value })
+    }
+
+    const handleSearchChange = (e) => {
+        if (onSearchChange) {
+            onSearchChange(e.target.value)
+        }
+    }
+
     return (
         <div className="glass-effect rounded-xl p-4 md:p-6 border border-white/10">
             <div className="flex items-center gap-2 mb-4">
                 <SlidersHorizontal className="h-5 w-5 text-primary" />
                 <h3 className="font-semibold text-foreground">Filter Movies</h3>
             </div>
+
+            {/* Search Bar */}
+            {onSearchChange && (
+                <div className="mb-4">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="Search movies..."
+                            value={searchQuery}
+                            onChange={handleSearchChange}
+                            className="pl-10 bg-secondary/50 border-white/10 focus:border-primary"
+                        />
+                    </div>
+                </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                 {/* Genre Filter */}
@@ -35,9 +74,12 @@ export function FilterBar({ filters, onFilterChange, onClearFilters }) {
                         placeholder="All Genres"
                         className="w-full"
                     >
-                        {GENRES.map((genre) => (
-                            <SelectOption key={genre} value={genre}>
-                                {genre}
+                        {genreList.map((genre) => (
+                            <SelectOption
+                                key={genre.id || genre}
+                                value={genre.id || genre}
+                            >
+                                {genre.name || genre}
                             </SelectOption>
                         ))}
                     </Select>
@@ -52,9 +94,12 @@ export function FilterBar({ filters, onFilterChange, onClearFilters }) {
                         placeholder="All Languages"
                         className="w-full"
                     >
-                        {LANGUAGES.map((language) => (
-                            <SelectOption key={language} value={language}>
-                                {language}
+                        {languageList.map((language) => (
+                            <SelectOption
+                                key={language.id || language}
+                                value={language.id || language}
+                            >
+                                {language.name || language}
                             </SelectOption>
                         ))}
                     </Select>
@@ -70,6 +115,23 @@ export function FilterBar({ filters, onFilterChange, onClearFilters }) {
                         className="w-full"
                     >
                         {RATING_OPTIONS.map((option) => (
+                            <SelectOption key={option.value} value={option.value}>
+                                {option.label}
+                            </SelectOption>
+                        ))}
+                    </Select>
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex-1">
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Status</label>
+                    <Select
+                        value={filters.status || ''}
+                        onChange={handleStatusChange}
+                        placeholder="All Status"
+                        className="w-full"
+                    >
+                        {MOVIE_STATUS_OPTIONS.map((option) => (
                             <SelectOption key={option.value} value={option.value}>
                                 {option.label}
                             </SelectOption>
@@ -97,9 +159,9 @@ export function FilterBar({ filters, onFilterChange, onClearFilters }) {
                 <div className="mt-4 pt-4 border-t border-white/10">
                     <p className="text-sm text-muted-foreground">
                         <span className="text-primary font-medium">
-                            {[filters.genre, filters.language, filters.rating].filter(Boolean).length}
+                            {[filters.genre, filters.language, filters.rating, filters.status, searchQuery].filter(Boolean).length}
                         </span>{' '}
-                        filter{[filters.genre, filters.language, filters.rating].filter(Boolean).length > 1 ? 's' : ''} applied
+                        filter{[filters.genre, filters.language, filters.rating, filters.status, searchQuery].filter(Boolean).length > 1 ? 's' : ''} applied
                     </p>
                 </div>
             )}

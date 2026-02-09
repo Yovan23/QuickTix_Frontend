@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
     ArrowRight,
@@ -6,32 +6,146 @@ import {
     Film,
     Star,
     TrendingUp,
-    Ticket
+    Ticket,
+    Loader2,
+    AlertCircle,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MovieGrid } from '@/components/shared/MovieGrid'
 import { FilterBar } from '@/components/shared/FilterBar'
-import { movies, filterMovies } from '@/data/movies'
+import { useCatalogue } from '@/hooks/useCatalogue'
 
 export function Home() {
     const [filters, setFilters] = useState({
         genre: '',
         language: '',
         rating: '',
+        status: 'RUNNING',  // Default to running movies
     })
+    const [searchQuery, setSearchQuery] = useState('')
+    const [currentPage, setCurrentPage] = useState(0)
 
-    // Filter movies based on current filters
+    // Fetch movies and filters from API
+    const {
+        movies,
+        genres,
+        languages,
+        loading,
+        error,
+        fetchMovies,
+        fetchGenres,
+        fetchLanguages,
+        handleSearch,
+        pagination
+    } = useCatalogue()
+
+    // Fetch filter options on mount (genres and languages only)
+    // Movies are fetched by the filter useEffect below with default filters
+    useEffect(() => {
+        fetchGenres()
+        fetchLanguages()
+    }, [fetchGenres, fetchLanguages])
+
+    // Handle filter changes - use backend API for genre, language, and status
+    useEffect(() => {
+        // Reset to page 0 when filters change
+        setCurrentPage(0)
+        const params = { page: 0, size: 15 }
+        if (filters.genre) params.genreId = filters.genre
+        if (filters.language) params.languageId = filters.language
+        if (filters.status) params.status = filters.status
+
+        console.log('[Home] Fetching movies with params:', params)
+        fetchMovies(params)
+    }, [filters.genre, filters.language, filters.status, fetchMovies])
+
+    // Handle page change
+    const handlePageChange = (newPage) => {
+        setCurrentPage(newPage)
+        const params = { page: newPage, size: 15 }
+        if (filters.genre) params.genreId = filters.genre
+        if (filters.language) params.languageId = filters.language
+        if (filters.status) params.status = filters.status
+        fetchMovies(params)
+        // Scroll to top of movies section
+        document.getElementById('movies')?.scrollIntoView({ behavior: 'smooth' })
+    }
+
+    // Handle search with debounce
+    useEffect(() => {
+        const debounceTimer = setTimeout(() => {
+            if (searchQuery) {
+                handleSearch(searchQuery)
+            } else {
+                // Re-apply filters when clearing search
+                const params = { page: currentPage, size: 15 }
+                if (filters.genre) params.genreId = filters.genre
+                if (filters.language) params.languageId = filters.language
+                if (filters.status) params.status = filters.status
+                fetchMovies(params)
+            }
+        }, 300)
+
+        return () => clearTimeout(debounceTimer)
+    }, [searchQuery, handleSearch, fetchMovies, filters.genre, filters.language, filters.status, currentPage])
+
+    // Filter movies locally by rating only (backend handles status now)
     const filteredMovies = useMemo(() => {
-        return filterMovies(filters)
-    }, [filters])
+        if (!movies || !Array.isArray(movies)) return []
 
-    // Get featured movie (highest rated)
+        let result = [...movies]
+
+        // Only rating filter is done client-side
+        if (filters.rating) {
+            const minRating = parseFloat(filters.rating)
+            result = result.filter((movie) => (movie.rating || 0) >= minRating)
+        }
+
+        return result
+    }, [movies, filters.rating])
+
+    // Get featured movie (highest rated or first movie)
     const featuredMovie = useMemo(() => {
-        return [...movies].sort((a, b) => b.rating - a.rating)[0]
-    }, [])
+        if (!filteredMovies.length) return null
+        return [...filteredMovies].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0]
+    }, [filteredMovies])
 
     const handleClearFilters = () => {
-        setFilters({ genre: '', language: '', rating: '' })
+        setFilters({ genre: '', language: '', rating: '', status: '' })
+        setSearchQuery('')
+    }
+
+    // Loading state
+    if (loading && !movies.length) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                    <p className="text-muted-foreground">Loading movies...</p>
+                </div>
+            </div>
+        )
+    }
+
+    // Error state
+    if (error && !movies.length) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4 max-w-md text-center">
+                    <div className="p-4 rounded-full bg-destructive/10">
+                        <AlertCircle className="h-12 w-12 text-destructive" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-foreground">Failed to load movies</h2>
+                    <p className="text-muted-foreground">{error}</p>
+                    <Button onClick={() => fetchAll()} className="gap-2">
+                        <ArrowRight className="h-4 w-4" />
+                        Try Again
+                    </Button>
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -40,10 +154,18 @@ export function Home() {
             <section className="relative overflow-hidden">
                 {/* Background */}
                 <div className="absolute inset-0">
-                    <div
-                        className="absolute inset-0 bg-cover bg-center opacity-30"
-                        style={{ backgroundImage: `url(${featuredMovie.backdrop})` }}
-                    />
+                    {featuredMovie && (
+                        <div
+                            className="absolute inset-0 bg-cover bg-center opacity-30"
+                            style={{
+                                backgroundImage: featuredMovie.backgroundUrl
+                                    ? `url(${featuredMovie.backgroundUrl})`
+                                    : featuredMovie.posterUrl
+                                        ? `url(${featuredMovie.posterUrl})`
+                                        : 'none'
+                            }}
+                        />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-b from-background via-background/80 to-background" />
                     <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-background" />
                 </div>
@@ -71,17 +193,21 @@ export function Home() {
 
                         {/* CTA Buttons */}
                         <div className="flex flex-col sm:flex-row gap-4 animate-fade-in animation-delay-300">
-                            <Button size="xl" className="gap-2 glow-effect">
-                                <Ticket className="h-5 w-5" />
-                                Browse Movies
-                                <ArrowRight className="h-5 w-5" />
+                            <Button size="xl" className="gap-2 glow-effect" asChild>
+                                <a href="#movies">
+                                    <Ticket className="h-5 w-5" />
+                                    Browse Movies
+                                    <ArrowRight className="h-5 w-5" />
+                                </a>
                             </Button>
-                            <Link to={`/movie/${featuredMovie.id}`}>
-                                <Button size="xl" variant="outline" className="gap-2 w-full sm:w-auto">
-                                    <Film className="h-5 w-5" />
-                                    Featured: {featuredMovie.title}
-                                </Button>
-                            </Link>
+                            {featuredMovie && (
+                                <Link to={`/movie/${featuredMovie.id}`}>
+                                    <Button size="xl" variant="outline" className="gap-2 w-full sm:w-auto">
+                                        <Film className="h-5 w-5" />
+                                        Featured: {featuredMovie.title}
+                                    </Button>
+                                </Link>
+                            )}
                         </div>
 
                         {/* Stats */}
@@ -89,7 +215,9 @@ export function Home() {
                             <div>
                                 <div className="flex items-center gap-2">
                                     <Film className="h-5 w-5 text-primary" />
-                                    <span className="text-2xl font-bold text-foreground">{movies.length}+</span>
+                                    <span className="text-2xl font-bold text-foreground">
+                                        {movies.length}+
+                                    </span>
                                 </div>
                                 <span className="text-sm text-muted-foreground">Movies Available</span>
                             </div>
@@ -136,38 +264,97 @@ export function Home() {
                         filters={filters}
                         onFilterChange={setFilters}
                         onClearFilters={handleClearFilters}
+                        genres={genres}
+                        languages={languages}
+                        searchQuery={searchQuery}
+                        onSearchChange={setSearchQuery}
                     />
                 </div>
 
+                {/* Loading indicator for filter changes */}
+                {loading && movies.length > 0 && (
+                    <div className="flex justify-center py-4">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                )}
+
                 {/* Movie Grid */}
                 <MovieGrid movies={filteredMovies} />
-            </section>
 
-            {/* Coming Soon Teaser */}
-            <section className="container pb-12 md:pb-16">
-                <div className="glass-effect rounded-2xl p-8 md:p-12 text-center relative overflow-hidden">
-                    {/* Background decoration */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-background to-primary/10" />
+                {/* Pagination */}
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-4 mt-8 py-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 0 || loading}
+                            className="gap-1"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                        </Button>
 
-                    <div className="relative z-10">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4">
-                            <Sparkles className="h-4 w-4 text-yellow-500" />
-                            <span className="text-sm font-medium text-yellow-500">Premium Access</span>
+                        <div className="flex items-center gap-2">
+                            {/* Generate page buttons */}
+                            {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => {
+                                // Show pages around current page
+                                let pageNum;
+                                if (pagination.totalPages <= 5) {
+                                    pageNum = i;
+                                } else if (currentPage < 3) {
+                                    pageNum = i;
+                                } else if (currentPage > pagination.totalPages - 4) {
+                                    pageNum = pagination.totalPages - 5 + i;
+                                } else {
+                                    pageNum = currentPage - 2 + i;
+                                }
+                                return (
+                                    <Button
+                                        key={pageNum}
+                                        variant={currentPage === pageNum ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => handlePageChange(pageNum)}
+                                        disabled={loading}
+                                        className="w-10"
+                                    >
+                                        {pageNum + 1}
+                                    </Button>
+                                );
+                            })}
                         </div>
 
-                        <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
-                            Unlock Exclusive Rewards
-                        </h3>
-                        <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
-                            Join QuickTix Premium. Get 20% off your first 3 bookings, free popcorn upgrades,
-                            and early access to ticket sales.
-                        </p>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage >= pagination.totalPages - 1 || loading}
+                            className="gap-1"
+                        >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
 
-                        <Button size="lg" className="gap-2 glow-effect">
-                            Join Premium Now
+                        <span className="text-sm text-muted-foreground ml-4">
+                            Page {currentPage + 1} of {pagination.totalPages}
+                            {pagination.totalElements > 0 && ` (${pagination.totalElements} movies)`}
+                        </span>
+                    </div>
+                )}
+
+                {/* Empty state */}
+                {!loading && filteredMovies.length === 0 && (
+                    <div className="text-center py-12">
+                        <Film className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+                        <h3 className="text-xl font-semibold text-foreground mb-2">No movies found</h3>
+                        <p className="text-muted-foreground mb-4">
+                            Try adjusting your filters or search query
+                        </p>
+                        <Button onClick={handleClearFilters} variant="outline">
+                            Clear Filters
                         </Button>
                     </div>
-                </div>
+                )}
             </section>
         </div>
     )
